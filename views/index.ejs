@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎬 AnimeHub - Streaming Site</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      @apply bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="sticky top-0 z-50 border-b border-purple-500/20 bg-black/50 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+      <div class="text-3xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+        🎬 AnimeHub
+      </div>
+      <button class="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-full hover:from-purple-600 hover:to-pink-600">
+        Sign In
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="py-20 md:py-32 text-center">
+    <div class="max-w-4xl mx-auto px-4">
+      <h1 class="text-5xl md:text-6xl font-black mb-4 bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">
+        Welcome to AnimeHub
+      </h1>
+      <p class="text-xl text-gray-300 mb-8">Stream unlimited anime with live data</p>
+      <input type="text" id="search" placeholder="Search anime..." class="max-w-md w-full bg-gray-900/50 border border-purple-500/30 rounded-full px-6 py-3 text-white placeholder-gray-500 outline-none focus:border-purple-500">
+    </div>
+  </section>
+
+  <!-- Anime Grid -->
+  <section class="max-w-7xl mx-auto px-4 pb-20">
+    <h2 class="text-4xl font-bold mb-8">🔥 Top Anime</h2>
+    <div id="animeGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <% if (anime && anime.length > 0) { %>
+        <% anime.forEach(a => { %>
+          <div class="bg-gray-900/50 rounded-lg overflow-hidden border border-purple-500/20 hover:border-purple-500 hover:scale-105 transition-all cursor-pointer">
+            <div class="h-64 bg-gradient-to-b from-purple-500 to-pink-500 flex items-center justify-center">
+              <span class="text-white font-bold"><%= a.titles?.en || a.titles?.en_jp || 'N/A' %></span>
+            </div>
+            <div class="p-4">
+              <h3 class="font-bold text-lg text-purple-300 truncate"><%= a.titles?.en || a.titles?.en_jp || 'N/A' %></h3>
+              <p class="text-sm text-gray-400">⭐ <%= (a.score || 0).toFixed(1) %></p>
+              <p class="text-xs text-gray-500 mt-2"><%= a.synopsis ? a.synopsis.substring(0, 50) + '...' : 'No synopsis' %></p>
+            </div>
+          </div>
+        <% }); %>
+      <% } else { %>
+        <div class="col-span-full text-center text-gray-400 py-16">
+          <p>No anime data available. Please try again.</p>
+        </div>
+      <% } %>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-purple-500/20 bg-black/50 py-8 text-center text-gray-400">
+    <p>&copy; 2024 AnimeHub. Powered by AniAPI</p>
+  </footer>
+
+  <script>
+    document.getElementById('search').addEventListener('input', async (e) => {
+      const query = e.target.value.trim()
+      if (!query) location.reload()
+      
+      try {
+        const res = await fetch(`/search?q=${encodeURIComponent(query)}`)
+        const html = await res.text()
+        document.getElementById('animeGrid').innerHTML = html
+      } catch (err) {
+        console.error(err)
+      }
+    })
+  </script>
+</body>
+</html>
