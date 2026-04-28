@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { SessionProvider } from 'next-auth/react';
+import UserAvatar from './UserAvatar';
 
 const SearchIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -10,7 +12,7 @@ const SearchIcon = () => (
   </svg>
 );
 
-export default function Header() {
+function HeaderInner() {
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useState('');
@@ -32,7 +34,7 @@ export default function Header() {
             <Link href="/browse?genre=Romance" className="nav-link">Romance</Link>
             <Link href="/browse?genre=Fantasy" className="nav-link">Fantasy</Link>
           </nav>
-          <form className="search-bar" onSubmit={handleSearch}>
+          <form className="search-bar" onSubmit={handleSearch} style={{ marginLeft: 'auto' }}>
             <span className="search-icon"><SearchIcon /></span>
             <input
               id="search-input"
@@ -44,8 +46,17 @@ export default function Header() {
               autoComplete="off"
             />
           </form>
+          <UserAvatar />
         </div>
       </div>
     </header>
+  );
+}
+
+export default function Header() {
+  return (
+    <SessionProvider>
+      <HeaderInner />
+    </SessionProvider>
   );
 }

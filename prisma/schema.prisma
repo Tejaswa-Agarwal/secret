@@ -1,0 +1,56 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  avatar    String?
+  createdAt DateTime @default(now())
+
+  comments  Comment[]
+  watchlist Watchlist[]
+  progress  Progress[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  animeId   Int
+  episodeId String?
+  body      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  likes     Int      @default(0)
+}
+
+model Watchlist {
+  id      String   @id @default(cuid())
+  animeId Int
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addedAt DateTime @default(now())
+
+  @@unique([userId, animeId])
+}
+
+model Progress {
+  id        String   @id @default(cuid())
+  animeId   Int
+  episodeId String
+  episodeNum Int     @default(1)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  watchedAt DateTime @default(now())
+
+  @@unique([userId, animeId, episodeId])
+}
