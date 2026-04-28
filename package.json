@@ -1,50 +1,15 @@
 {
   "name": "anistream",
-  "version": "2.0.0",
-  "description": "Modern anime streaming site with AniList + Consumet",
-  "main": "index.js",
+  "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Tejaswa-Agarwal/secret.git"
-  },
-  "keywords": [
-    "anime",
-    "streaming",
-    "nextjs"
-  ],
-  "author": "Tejaswa-Agarwal",
-  "license": "ISC",
-  "dependencies": {
-    "@auth/prisma-adapter": "^2.11.2",
-    "@consumet/extensions": "^1.8.8",
-    "@prisma/adapter-better-sqlite3": "^7.8.0",
-    "@prisma/client": "^7.8.0",
-    "@tailwindcss/postcss": "^4.2.4",
-    "@types/node": "^25.6.0",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.9.0",
-    "hls.js": "^1.5.17",
-    "next": "^16.2.4",
-    "next-auth": "^5.0.0-beta.31",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "typescript": "^6.0.3",
-    "zod": "^4.3.6"
+    "dev": "concurrently \"npm run dev --prefix frontend\" \"npm run dev --prefix backend\" --names \"frontend,backend\" --prefix-colors \"cyan,magenta\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "install:all": "npm install --prefix frontend && npm install --prefix backend",
+    "build": "npm run build --prefix frontend"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/better-sqlite3": "^7.6.13",
-    "autoprefixer": "^10.5.0",
-    "postcss": "^8.5.12",
-    "prisma": "^7.8.0",
-    "tailwindcss": "^4.2.4"
+    "concurrently": "^8.2.2"
   }
 }

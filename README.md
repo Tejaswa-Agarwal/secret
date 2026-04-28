@@ -1,137 +1,127 @@
-# 🎬 AnimeHub - Modern Anime Streaming Site
+# AniStream 🎌
 
-A beautiful, modern anime streaming platform built with **Next.js**, **React**, and **Tailwind CSS**.
+A modern anime streaming site — **Next.js frontend** + **Express backend** with self-hosted Consumet scrapers.
 
-## 🌟 Features
-
-- **Beautiful UI**: Modern gradient design with purple and pink themes
-- **Browse Anime**: Explore a collection of popular anime titles
-- **Search Functionality**: Filter anime by title or genre
-- **Anime Details**: View detailed information about each anime including:
-  - Rating and episode count
-  - Genre tags
-  - Status (Ongoing/Completed)
-  - Synopsis
-  - Recommendations for similar anime
-- **Favorites**: Add anime to your favorites (client-side storage ready)
-- **Responsive Design**: Works perfectly on desktop, tablet, and mobile devices
-- **Dark Mode**: Modern dark theme optimized for late-night viewing
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
-
-1. Install dependencies:
-```bash
-npm install
-```
-
-2. Start the development server:
-```bash
-npm run dev
-```
-
-3. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-## 📦 Tech Stack
-
-- **Frontend Framework**: Next.js 16
-- **UI Library**: React 19
-- **Styling**: Tailwind CSS with custom gradients
-- **Language**: TypeScript
-- **State Management**: React hooks
-- **Dev Server**: Next.js built-in dev server
-
-## 📁 Project Structure
+## Project Structure
 
 ```
-src/
-├── app/
-│   ├── page.tsx              # Home page with search & grid
-│   ├── layout.tsx            # Root layout
-│   ├── globals.css           # Global styles
-│   ├── anime/
-│   │   └── [id]/page.tsx     # Anime detail page
-│   ├── browse/
-│   │   └── page.tsx          # Browse page (placeholder)
-│   └── trending/
-│       └── page.tsx          # Trending page (placeholder)
-├── components/
-│   ├── Header.tsx            # Navigation header
-│   ├── Footer.tsx            # Footer
-│   └── AnimeCard.tsx         # Anime card component
-├── types/
-│   └── anime.ts              # TypeScript types
-└── data/
-    └── anime.ts              # Mock anime data
+/
+├── frontend/   ← Next.js app (UI, pages, auth, database)
+└── backend/    ← Express API (Consumet scrapers for HLS streams)
 ```
-
-## 🎨 Features in Detail
-
-### Home Page
-- Search bar with real-time filtering
-- Anime grid displaying 8 popular series
-- Beautiful hero section with gradients
-- Call-to-action for subscription
-
-### Anime Detail Page
-- Full anime poster and information
-- Rating, episode count, status, and year
-- Genre tags
-- Complete synopsis
-- "Watch Now" and "Watch Trailer" buttons
-- Add to favorites functionality
-- Related anime recommendations
-
-### Responsive Navigation
-- Sticky header with logo and navigation
-- Mobile-friendly hamburger menu
-- Smooth transitions and hover effects
-
-## 📊 Sample Data
-
-The site includes 8 popular anime with complete information:
-1. Attack on Titan - 9.1 rating
-2. Demon Slayer - 8.7 rating
-3. Death Note - 9.0 rating
-4. Steins;Gate - 9.1 rating
-5. Jujutsu Kaisen - 8.8 rating
-6. My Hero Academia - 8.3 rating
-7. Neon Genesis Evangelion - 8.0 rating
-8. Cowboy Bebop - 8.9 rating
-
-## 🔧 Build for Production
-
-```bash
-npm run build
-npm run start
-```
-
-## 🎯 Future Enhancements
-
-- [ ] User authentication and profiles
-- [ ] Backend database integration (MongoDB/PostgreSQL)
-- [ ] Streaming video player integration
-- [ ] User ratings and reviews
-- [ ] Watchlist management
-- [ ] Episode tracking
-- [ ] Advanced filtering and sorting
-- [ ] Recommendation algorithm
-- [ ] Social features (comments, sharing)
-- [ ] Admin panel for content management
-
-## 📝 License
-
-MIT License - feel free to use this project for personal or commercial purposes.
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to submit PRs or open issues.
 
 ---
 
-**Made with ❤️ using Next.js**
+## 🚀 Running Locally
+
+### Prerequisites
+- Node.js v20+ (use `nvm use 20`)
+- Git
+
+### 1. Frontend
+```bash
+cd frontend
+npm install
+# copy env file
+cp .env.example .env.local   # fill in AUTH_SECRET, DATABASE_URL
+npx prisma migrate deploy    # run DB migrations
+npm run dev                  # starts at http://localhost:3000
+```
+
+### 2. Backend
+```bash
+cd backend
+npm install
+cp .env.example .env
+npm run dev                  # starts at http://localhost:4000
+```
+
+### 3. Both at once (from root)
+```bash
+npm install          # installs concurrently
+npm run dev          # starts frontend + backend together
+```
+
+---
+
+## 🌐 Hosting
+
+### Frontend → Vercel (recommended)
+1. Push to GitHub
+2. Import `frontend/` folder on [vercel.com](https://vercel.com)
+3. Set **Root Directory** to `frontend`
+4. Add env vars:
+   ```
+   AUTH_SECRET=<32-char random string>
+   DATABASE_URL=<your postgres URL>    # use Vercel Postgres or Supabase
+   NEXTAUTH_URL=https://your-app.vercel.app
+   NEXT_PUBLIC_BACKEND_URL=https://your-backend.railway.app
+   ```
+
+### Backend → Railway (recommended)
+1. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
+2. Select **root directory**: `backend`
+3. Add env var: `FRONTEND_URL=https://your-app.vercel.app`
+4. Railway auto-detects `npm start` — done!
+
+### Backend → Render
+1. New Web Service → connect repo
+2. Root directory: `backend`
+3. Build: `npm install` | Start: `node server.js`
+4. Add `FRONTEND_URL` env var
+
+---
+
+## 🔑 Environment Variables
+
+### Frontend (`frontend/.env.local`)
+| Variable | Description |
+|---|---|
+| `AUTH_SECRET` | Random 32-char string for NextAuth |
+| `DATABASE_URL` | SQLite: `file:./prisma/dev.db` · Postgres: `postgresql://...` |
+| `NEXTAUTH_URL` | Your frontend URL |
+| `NEXT_PUBLIC_BACKEND_URL` | URL of your deployed backend (optional) |
+
+### Backend (`backend/.env`)
+| Variable | Description |
+|---|---|
+| `PORT` | Server port (default: 4000) |
+| `FRONTEND_URL` | Your frontend URL for CORS |
+
+---
+
+## 📡 Backend API Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Health check |
+| GET | `/api/episodes/jikan/:malId` | Episode list (from Jikan/MAL) |
+| GET | `/api/stream/anilist/:episodeId` | HLS stream sources |
+| GET | `/api/anime/:anilistId` | Anime info + episodes |
+| GET | `/api/search/:query` | Search anime |
+
+---
+
+## 🗄️ Database
+
+For **local dev**: SQLite is used automatically.  
+For **production**: Use PostgreSQL (Vercel Postgres / Supabase). Update `schema.prisma`:
+```prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+```
+
+---
+
+## Tech Stack
+
+| Layer | Tech |
+|---|---|
+| Frontend | Next.js 16, TypeScript, Prisma, NextAuth.js |
+| Backend | Express.js, @consumet/extensions |
+| Database | SQLite (dev) / PostgreSQL (prod) |
+| Anime Metadata | AniList GraphQL API |
+| Episode Data | Jikan (MAL unofficial API) + AniZip |
+| Streaming | Embed iframes (vidsrc.me/pro) + backend HLS |
