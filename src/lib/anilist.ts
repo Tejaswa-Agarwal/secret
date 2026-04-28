@@ -2,6 +2,7 @@ const ANILIST_URL = 'https://graphql.anilist.co';
 
 const MEDIA_FRAGMENT = `
   id
+  idMal
   title { romaji english native }
   description(asHtml: false)
   coverImage { extraLarge large medium color }
@@ -115,6 +116,7 @@ export async function getAnimeById(id: number) {
 
 export interface AniListMedia {
   id: number;
+  idMal?: number;
   title: { romaji: string; english?: string; native?: string };
   description?: string;
   coverImage: { extraLarge?: string; large?: string; medium?: string; color?: string };

@@ -76,6 +76,7 @@ export default async function WatchPage({ params }: Props) {
             {/* ===== VIDEO PLAYER ===== */}
             <VideoPlayer
               animeId={numId}
+              malId={anime.idMal}
               episodeNum={epNum}
               title={`${title} — ${epTitle}`}
             />

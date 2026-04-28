@@ -3,51 +3,66 @@
 import { useEffect, useState } from 'react';
 
 interface Props {
-  animeId: number;
+  animeId: number;      // AniList ID
+  malId?: number;       // MyAnimeList ID (more widely supported by embeds)
   episodeNum: number;
   title?: string;
 }
 
-// Embed providers — order matters, first one shown by default
-const PROVIDERS = [
+/**
+ * Embed providers — ordered by reliability for anime.
+ * We use MAL ID where possible since it's the universal standard
+ * recognized by all anime databases. AniList IDs are only used by
+ * providers that explicitly support them.
+ */
+const getProviders = (animeId: number, malId: number | undefined, ep: number) => [
   {
     id: 'p1',
     label: '🟢 Server 1',
-    // 2embed with AniList ID — most reliable
-    getUrl: (id: number, ep: number) =>
-      `https://2embed.skin/embed/anilist/${id}/${ep}`,
+    // vidsrc.me uses MAL ID for anime — correct content guaranteed
+    url: malId
+      ? `https://vidsrc.me/embed/anime?mal=${malId}&episode=${ep}`
+      : `https://vidsrc.me/embed/anime?id=${animeId}&episode=${ep}`,
   },
   {
     id: 'p2',
     label: '🔵 Server 2',
-    // VidSrc with AniList ID
-    getUrl: (id: number, ep: number) =>
-      `https://vidsrc.me/embed/anime?id=${id}&episode=${ep}`,
+    // vidsrc.net supports MAL ID
+    url: malId
+      ? `https://vidsrc.net/embed/anime?mal=${malId}&ep=${ep}`
+      : null,
   },
   {
     id: 'p3',
     label: '🟡 Server 3',
-    // embed.su — another aggregator
-    getUrl: (id: number, ep: number) =>
-      `https://embed.su/embed/anilist/${id}/${ep}`,
+    // embed.su supports AniList IDs for anime specifically
+    url: `https://embed.su/embed/anilist/${animeId}/${ep}`,
   },
-];
+  {
+    id: 'p4',
+    label: '🟠 Server 4',
+    // 2embed with MAL ID — correct mapping
+    url: malId
+      ? `https://2embed.skin/embed/anime/mal/${malId}/${ep}`
+      : null,
+  },
+].filter(p => p.url !== null) as { id: string; label: string; url: string }[];
 
-export default function VideoPlayer({ animeId, episodeNum, title }: Props) {
-  const [activeProvider, setActiveProvider] = useState(PROVIDERS[0].id);
-  const [key, setKey] = useState(0); // Force iframe reload on provider switch
+export default function VideoPlayer({ animeId, malId, episodeNum, title }: Props) {
+  const [activeId, setActiveId] = useState('p1');
+  const [key, setKey] = useState(0);
 
-  // Reset to first provider whenever episode changes
+  // Reset to first provider when episode changes
   useEffect(() => {
-    setActiveProvider(PROVIDERS[0].id);
+    setActiveId('p1');
     setKey(k => k + 1);
   }, [animeId, episodeNum]);
 
-  const provider = PROVIDERS.find(p => p.id === activeProvider) ?? PROVIDERS[0];
-  const embedUrl = provider.getUrl(animeId, episodeNum);
+  const providers = getProviders(animeId, malId, episodeNum);
+  const active = providers.find(p => p.id === activeId) ?? providers[0];
 
   const switchProvider = (id: string) => {
-    setActiveProvider(id);
+    setActiveId(id);
     setKey(k => k + 1);
   };
 
@@ -56,32 +71,29 @@ export default function VideoPlayer({ animeId, episodeNum, title }: Props) {
       {/* Server switcher */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Server:</span>
-        {PROVIDERS.map(p => (
+        {providers.map(p => (
           <button
             key={p.id}
             onClick={() => switchProvider(p.id)}
-            style={btnStyle(activeProvider === p.id)}
+            style={btnStyle(activeId === p.id)}
           >
             {p.label}
           </button>
         ))}
         <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>
-          If one doesn&apos;t load, try another →
+          If one fails, try another server →
         </span>
       </div>
 
-      {/* Iframe player — sandbox prevents iframe from redirecting the parent page */}
+      {/* Player — NO sandbox attr since embed providers block sandboxed iframes */}
       <div className="video-wrapper">
         <iframe
-          key={`${key}-${animeId}-${episodeNum}`}
-          src={embedUrl}
+          key={`${key}-${animeId}-${episodeNum}-${activeId}`}
+          src={active.url}
           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
           allowFullScreen
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-          // allow-popups lets the player open quality picker etc
-          // NOT including allow-top-navigation prevents the iframe from hijacking the browser tab
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-presentation allow-fullscreen"
-          referrerPolicy="no-referrer"
+          referrerPolicy="no-referrer-when-downgrade"
           title={title ?? `Episode ${episodeNum}`}
           loading="eager"
         />
