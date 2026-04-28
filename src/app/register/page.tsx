@@ -5,35 +5,24 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export default function RegisterPage() {
-  const router = useRouter();
-  const [form, setForm] = useState({ username: '', email: '', password: '', confirm: '' });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    if (form.password !== form.confirm) { setError('Passwords do not match'); return; }
-    setLoading(true);
-
-    const res = await fetch('/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: form.username, email: form.email, password: form.password }),
-    });
-    const data = await res.json();
-    if (!res.ok) { setError(data.error || 'Registration failed'); setLoading(false); return; }
-
-    // Auto sign in after register
-    await signIn('credentials', { email: form.email, password: form.password, redirect: false });
-    router.push('/');
-    router.refresh();
-  };
-
-  const Field = ({ id, label, type, placeholder, field }: { id: string; label: string; type: string; placeholder: string; field: keyof typeof form }) => (
+// IMPORTANT: Field must be defined OUTSIDE the page component
+// Defining it inside causes React to recreate the component on every render,
+// unmounting/remounting inputs and losing focus after every keystroke.
+interface FieldProps {
+  id: string;
+  label: string;
+  type: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete?: string;
+}
+function Field({ id, label, type, placeholder, value, onChange, autoComplete }: FieldProps) {
+  return (
     <div style={{ marginBottom: 16 }}>
-      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>{label}</label>
+      <label htmlFor={id} style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+        {label}
+      </label>
       <input
         id={id}
         type={type}
@@ -41,11 +30,41 @@ export default function RegisterPage() {
         className="search-input"
         style={{ width: '100%', padding: '12px 16px', fontSize: 14 }}
         placeholder={placeholder}
-        value={form[field]}
-        onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        autoComplete={autoComplete}
       />
     </div>
   );
+}
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (password !== confirm) { setError('Passwords do not match'); return; }
+    setLoading(true);
+
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setError(data.error || 'Registration failed'); setLoading(false); return; }
+
+    await signIn('credentials', { email, password, redirect: false });
+    router.push('/');
+    router.refresh();
+  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -58,10 +77,10 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <Field id="reg-username" label="Username" type="text" placeholder="coolweeb42" field="username" />
-          <Field id="reg-email" label="Email" type="email" placeholder="you@example.com" field="email" />
-          <Field id="reg-password" label="Password" type="password" placeholder="••••••••" field="password" />
-          <Field id="reg-confirm" label="Confirm Password" type="password" placeholder="••••••••" field="confirm" />
+          <Field id="reg-username" label="Username" type="text" placeholder="coolweeb42" value={username} onChange={setUsername} autoComplete="username" />
+          <Field id="reg-email" label="Email" type="email" placeholder="you@example.com" value={email} onChange={setEmail} autoComplete="email" />
+          <Field id="reg-password" label="Password" type="password" placeholder="••••••••" value={password} onChange={setPassword} autoComplete="new-password" />
+          <Field id="reg-confirm" label="Confirm Password" type="password" placeholder="••••••••" value={confirm} onChange={setConfirm} autoComplete="new-password" />
 
           {error && (
             <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', color: '#f87171', fontSize: 13, marginBottom: 16 }}>
@@ -74,7 +93,7 @@ export default function RegisterPage() {
             type="submit"
             className="btn-primary"
             disabled={loading}
-            style={{ width: '100%', justifyContent: 'center', opacity: loading ? 0.7 : 1 }}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 8, opacity: loading ? 0.7 : 1 }}
           >
             {loading ? 'Creating account...' : 'Create Account'}
           </button>
@@ -82,9 +101,7 @@ export default function RegisterPage() {
 
         <p style={{ textAlign: 'center', marginTop: 24, color: 'var(--text-muted)', fontSize: 14 }}>
           Already have an account?{' '}
-          <Link href="/login" style={{ color: 'var(--accent-2)', fontWeight: 600, textDecoration: 'none' }}>
-            Sign In
-          </Link>
+          <Link href="/login" style={{ color: 'var(--accent-2)', fontWeight: 600, textDecoration: 'none' }}>Sign In</Link>
         </p>
       </div>
     </div>

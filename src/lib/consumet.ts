@@ -1,26 +1,14 @@
-// Consumet REST API wrapper
-// Primary: https://api.consumet.org
-// Fallback: https://consumet-api.onrender.com
-
-const CONSUMET_BASES = [
-  'https://api.consumet.org',
-  'https://consumet-api.onrender.com',
-];
-
-async function consumetFetch(path: string): Promise<unknown> {
-  for (const base of CONSUMET_BASES) {
-    try {
-      const res = await fetch(`${base}${path}`, {
-        next: { revalidate: 300 },
-        signal: AbortSignal.timeout(8000),
-      });
-      if (res.ok) return await res.json();
-    } catch {
-      // try next base
-    }
-  }
-  throw new Error(`Consumet API unavailable for: ${path}`);
-}
+/**
+ * Anime episode & streaming source fetcher.
+ *
+ * Strategy (in order):
+ *  1. META.Anilist from @consumet/extensions — scrapes episode list + stream URLs
+ *     using Hianime/AnimePahe providers under the hood (same as Anikai/Aniyomi)
+ *  2. Fallback: REST Consumet public instance if scraper times out
+ *
+ * The VideoPlayer component also has 2embed + VidSrc iframe fallbacks
+ * which are the most reliable for end users.
+ */
 
 export interface ConsumetEpisode {
   id: string;
@@ -43,34 +31,94 @@ export interface ConsumetStreamResult {
   headers?: Record<string, string>;
 }
 
-// Get episodes for an anime by its AniList ID (uses meta/anilist provider)
+const CONSUMET_FALLBACK = 'https://consumet-api.onrender.com';
+
+/** Helper: call Consumet public REST API as fallback */
+async function restFetch(path: string): Promise<unknown> {
+  const res = await fetch(`${CONSUMET_FALLBACK}${path}`, {
+    signal: AbortSignal.timeout(8000),
+    next: { revalidate: 300 },
+  });
+  if (!res.ok) throw new Error(`REST ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Fetch episode list for an anime by AniList ID.
+ * Uses @consumet/extensions META.Anilist scraper (Hianime provider),
+ * with REST fallback.
+ */
 export async function getEpisodes(anilistId: number): Promise<ConsumetEpisode[]> {
+  // Try scraper first
   try {
-    const data = await consumetFetch(`/meta/anilist/episodes/${anilistId}`) as { episodes?: ConsumetEpisode[] } | ConsumetEpisode[];
+    const { META } = await import('@consumet/extensions');
+    const anilist = new META.Anilist();
+    const info = await Promise.race([
+      anilist.fetchAnimeInfo(String(anilistId)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000)),
+    ]) as { episodes?: ConsumetEpisode[] };
+    if (info?.episodes?.length) {
+      return info.episodes.map((ep: ConsumetEpisode) => ({
+        id: ep.id,
+        number: ep.number,
+        title: ep.title ?? undefined,
+        description: ep.description ?? undefined,
+        image: ep.image ?? undefined,
+        airDate: ep.airDate ?? undefined,
+      }));
+    }
+  } catch {
+    // fall through to REST
+  }
+
+  // REST fallback
+  try {
+    const data = await restFetch(`/meta/anilist/episodes/${anilistId}`) as ConsumetEpisode[] | { episodes?: ConsumetEpisode[] };
     if (Array.isArray(data)) return data;
-    if ('episodes' in data && Array.isArray((data as { episodes?: ConsumetEpisode[] }).episodes)) return (data as { episodes: ConsumetEpisode[] }).episodes;
-    return [];
+    if ('episodes' in data && Array.isArray(data.episodes)) return data.episodes;
   } catch {
-    return [];
+    // all failed
   }
+
+  return [];
 }
 
-// Get streaming sources for an episode ID (from gogoanime)
+/**
+ * Fetch streaming sources for an episode ID.
+ * Same scraper → REST fallback chain.
+ */
 export async function getStreamingSources(episodeId: string): Promise<ConsumetStreamResult> {
+  // Try @consumet/extensions META.Anilist scraper
   try {
-    const data = await consumetFetch(`/meta/anilist/watch/${encodeURIComponent(episodeId)}`) as ConsumetStreamResult;
-    return data;
-  } catch {
-    return { sources: [] };
-  }
-}
+    const { META } = await import('@consumet/extensions');
+    const anilist = new META.Anilist();
+    const data = await Promise.race([
+      anilist.fetchEpisodeSources(episodeId),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000)),
+    ]) as { sources?: ConsumetSource[]; subtitles?: { url: string; lang: string }[]; headers?: Record<string, string> };
 
-// Search anime by name via Consumet (gogoanime)
-export async function searchConsumet(query: string): Promise<{ id: string; title: string; image?: string }[]> {
-  try {
-    const data = await consumetFetch(`/anime/gogoanime/${encodeURIComponent(query)}`) as { results?: { id: string; title: string; image?: string }[] };
-    return data?.results ?? [];
+    if (data?.sources?.length) {
+      return {
+        sources: data.sources.map((s: ConsumetSource) => ({
+          url: s.url,
+          quality: s.quality ?? 'default',
+          isM3U8: s.isM3U8 ?? s.url.includes('.m3u8'),
+        })),
+        subtitles: data.subtitles,
+        headers: data.headers,
+      };
+    }
   } catch {
-    return [];
+    // fall through
   }
+
+  // REST fallback
+  try {
+    const data = await restFetch(`/meta/anilist/watch/${encodeURIComponent(episodeId)}`) as ConsumetStreamResult;
+    if (data?.sources?.length) return data;
+  } catch {
+    // all failed
+  }
+
+  return { sources: [] };
 }

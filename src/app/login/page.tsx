@@ -5,6 +5,37 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// IMPORTANT: Field must be defined OUTSIDE the page component
+// so React doesn't recreate it on every render (causing focus loss)
+interface FieldProps {
+  id: string;
+  label: string;
+  type: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+}
+function Field({ id, label, type, placeholder, value, onChange }: FieldProps) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label htmlFor={id} style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        required
+        className="search-input"
+        style={{ width: '100%', padding: '12px 16px', fontSize: 14 }}
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        autoComplete={type === 'password' ? 'current-password' : type === 'email' ? 'email' : 'off'}
+      />
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -37,32 +68,8 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Email</label>
-            <input
-              id="login-email"
-              type="email"
-              required
-              className="search-input"
-              style={{ width: '100%', padding: '12px 16px', fontSize: 14 }}
-              placeholder="you@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-            />
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Password</label>
-            <input
-              id="login-password"
-              type="password"
-              required
-              className="search-input"
-              style={{ width: '100%', padding: '12px 16px', fontSize: 14 }}
-              placeholder="••••••••"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-            />
-          </div>
+          <Field id="login-email" label="Email" type="email" placeholder="you@example.com" value={email} onChange={setEmail} />
+          <Field id="login-password" label="Password" type="password" placeholder="••••••••" value={password} onChange={setPassword} />
 
           {error && (
             <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', color: '#f87171', fontSize: 13, marginBottom: 16 }}>
@@ -75,7 +82,7 @@ export default function LoginPage() {
             type="submit"
             className="btn-primary"
             disabled={loading}
-            style={{ width: '100%', justifyContent: 'center', opacity: loading ? 0.7 : 1 }}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 8, opacity: loading ? 0.7 : 1 }}
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
@@ -83,9 +90,7 @@ export default function LoginPage() {
 
         <p style={{ textAlign: 'center', marginTop: 24, color: 'var(--text-muted)', fontSize: 14 }}>
           Don&apos;t have an account?{' '}
-          <Link href="/register" style={{ color: 'var(--accent-2)', fontWeight: 600, textDecoration: 'none' }}>
-            Register
-          </Link>
+          <Link href="/register" style={{ color: 'var(--accent-2)', fontWeight: 600, textDecoration: 'none' }}>Register</Link>
         </p>
       </div>
     </div>
