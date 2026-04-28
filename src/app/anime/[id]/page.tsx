@@ -103,7 +103,7 @@ export default async function AnimePage({ params }: Props) {
 
               <div>
                 <h2 className="section-title" style={{ fontSize: 18, marginBottom: 16 }}>Episodes</h2>
-                <EpisodeList animeId={numId} episodes={episodes} />
+              <EpisodeList animeId={numId} episodes={episodes} showThumbnails={episodes.length <= 50} />
               </div>
             </div>
           </div>

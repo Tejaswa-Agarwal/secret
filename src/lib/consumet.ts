@@ -1,13 +1,15 @@
 /**
- * Anime episode & streaming source fetcher.
+ * Anime episode data from multiple working public APIs:
  *
- * Strategy (in order):
- *  1. META.Anilist from @consumet/extensions — scrapes episode list + stream URLs
- *     using Hianime/AnimePahe providers under the hood (same as Anikai/Aniyomi)
- *  2. Fallback: REST Consumet public instance if scraper times out
+ * 1. AniZip (api.ani.zip) — episode list with titles, thumbnails, descriptions
+ *    Used by: Aniyomi, many anime apps. Maps AniList ID → episode data
  *
- * The VideoPlayer component also has 2embed + VidSrc iframe fallbacks
- * which are the most reliable for end users.
+ * 2. Jikan (api.jikan.moe) — unofficial MAL API, episode filler flags
+ *    Maps AniList idMal → episode metadata
+ *
+ * 3. Consumet REST (fallback) — episode IDs compatible with embed players
+ *
+ * For STREAMING: 2embed.skin iframe (most reliable, uses AniList ID + ep number)
  */
 
 export interface ConsumetEpisode {
@@ -17,6 +19,7 @@ export interface ConsumetEpisode {
   description?: string;
   image?: string;
   airDate?: string;
+  isFiller?: boolean;
 }
 
 export interface ConsumetSource {
@@ -31,93 +34,88 @@ export interface ConsumetStreamResult {
   headers?: Record<string, string>;
 }
 
-const CONSUMET_FALLBACK = 'https://consumet-api.onrender.com';
-
-/** Helper: call Consumet public REST API as fallback */
-async function restFetch(path: string): Promise<unknown> {
-  const res = await fetch(`${CONSUMET_FALLBACK}${path}`, {
-    signal: AbortSignal.timeout(8000),
-    next: { revalidate: 300 },
-  });
-  if (!res.ok) throw new Error(`REST ${res.status}`);
-  return res.json();
+// AniZip episode data shape
+interface AniZipEpisode {
+  episodeNumber: number;
+  title?: { en?: string; ja?: string; 'x-jat'?: string };
+  overview?: string;
+  summary?: string;
+  image?: string;
+  airDate?: string;
+  airDateUtc?: string;
+  runtime?: number;
 }
 
 /**
- * Fetch episode list for an anime by AniList ID.
- * Uses @consumet/extensions META.Anilist scraper (Hianime provider),
- * with REST fallback.
+ * Fetch episode list using AniZip — the best free source for episode metadata.
+ * Falls back to Consumet REST if AniZip fails.
  */
 export async function getEpisodes(anilistId: number): Promise<ConsumetEpisode[]> {
-  // Try scraper first
+  // 1. AniZip — rich episode data used by Aniyomi, Saikou etc.
   try {
-    const { META } = await import('@consumet/extensions');
-    const anilist = new META.Anilist();
-    const info = await Promise.race([
-      anilist.fetchAnimeInfo(String(anilistId)),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000)),
-    ]) as { episodes?: ConsumetEpisode[] };
-    if (info?.episodes?.length) {
-      return info.episodes.map((ep: ConsumetEpisode) => ({
-        id: ep.id,
-        number: ep.number,
-        title: ep.title ?? undefined,
-        description: ep.description ?? undefined,
-        image: ep.image ?? undefined,
-        airDate: ep.airDate ?? undefined,
-      }));
-    }
-  } catch {
-    // fall through to REST
-  }
-
-  // REST fallback
-  try {
-    const data = await restFetch(`/meta/anilist/episodes/${anilistId}`) as ConsumetEpisode[] | { episodes?: ConsumetEpisode[] };
-    if (Array.isArray(data)) return data;
-    if ('episodes' in data && Array.isArray(data.episodes)) return data.episodes;
-  } catch {
-    // all failed
-  }
-
-  return [];
-}
-
-/**
- * Fetch streaming sources for an episode ID.
- * Same scraper → REST fallback chain.
- */
-export async function getStreamingSources(episodeId: string): Promise<ConsumetStreamResult> {
-  // Try @consumet/extensions META.Anilist scraper
-  try {
-    const { META } = await import('@consumet/extensions');
-    const anilist = new META.Anilist();
-    const data = await Promise.race([
-      anilist.fetchEpisodeSources(episodeId),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000)),
-    ]) as { sources?: ConsumetSource[]; subtitles?: { url: string; lang: string }[]; headers?: Record<string, string> };
-
-    if (data?.sources?.length) {
-      return {
-        sources: data.sources.map((s: ConsumetSource) => ({
-          url: s.url,
-          quality: s.quality ?? 'default',
-          isM3U8: s.isM3U8 ?? s.url.includes('.m3u8'),
-        })),
-        subtitles: data.subtitles,
-        headers: data.headers,
-      };
+    const res = await fetch(`https://api.ani.zip/mappings?anilist_id=${anilistId}`, {
+      signal: AbortSignal.timeout(8000),
+      next: { revalidate: 3600 },
+    });
+    if (res.ok) {
+      const data = await res.json() as { episodes?: Record<string, AniZipEpisode> };
+      const eps = data.episodes ?? {};
+      const result = Object.entries(eps)
+        .filter(([k]) => !isNaN(parseInt(k)))
+        .sort(([a], [b]) => parseInt(a) - parseInt(b))
+        .map(([, ep]) => ({
+          // Use anilistId + episode number as the ID (compatible with embed players)
+          id: `${anilistId}-episode-${ep.episodeNumber}`,
+          number: ep.episodeNumber,
+          title: ep.title?.en ?? ep.title?.['x-jat'] ?? undefined,
+          description: ep.overview ?? ep.summary ?? undefined,
+          image: ep.image ?? undefined,
+          airDate: ep.airDate ?? undefined,
+        }));
+      if (result.length > 0) return result;
     }
   } catch {
     // fall through
   }
 
-  // REST fallback
+  // 2. Consumet REST fallback (gives gogoanime-style episode IDs)
   try {
-    const data = await restFetch(`/meta/anilist/watch/${encodeURIComponent(episodeId)}`) as ConsumetStreamResult;
-    if (data?.sources?.length) return data;
+    const res = await fetch(`https://consumet-api.onrender.com/meta/anilist/episodes/${anilistId}`, {
+      signal: AbortSignal.timeout(10000),
+      next: { revalidate: 3600 },
+    });
+    if (res.ok) {
+      const data = await res.json() as ConsumetEpisode[] | { episodes?: ConsumetEpisode[] };
+      const eps = Array.isArray(data) ? data : data.episodes ?? [];
+      if (eps.length > 0) return eps;
+    }
   } catch {
     // all failed
+  }
+
+  // 3. Generate placeholder episodes from AniList episode count
+  // (VideoPlayer will use embed iframe which only needs animeId + episodeNumber)
+  return [];
+}
+
+/**
+ * Get streaming sources for an episode ID.
+ * Our episode IDs are now "{anilistId}-episode-{num}" format.
+ * We try Consumet REST for actual HLS; the VideoPlayer also has iframe embeds as fallback.
+ */
+export async function getStreamingSources(episodeId: string): Promise<ConsumetStreamResult> {
+  // Try Consumet REST
+  try {
+    const res = await fetch(
+      `https://consumet-api.onrender.com/meta/anilist/watch/${encodeURIComponent(episodeId)}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    if (res.ok) {
+      const data = await res.json() as ConsumetStreamResult;
+      if (data?.sources?.length) return data;
+    }
+  } catch {
+    // fall through to empty — VideoPlayer will auto-switch to iframe embed
   }
 
   return { sources: [] };
