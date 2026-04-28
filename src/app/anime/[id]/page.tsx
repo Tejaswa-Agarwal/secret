@@ -37,8 +37,13 @@ export default async function AnimePage({ params }: Props) {
   let anime: AniListMedia;
   let episodes: ConsumetEpisode[] = [];
   try {
-    [anime, episodes] = await Promise.all([getAnimeById(numId), getEpisodes(numId)]);
-  } catch { notFound(); }
+    anime = await getAnimeById(numId);
+  } catch { notFound(); return; }
+
+  // Episodes fetched separately so failure doesn't kill the whole page
+  try {
+    episodes = await getEpisodes(numId, anime.idMal);
+  } catch { /* show page without episodes */ }
 
   const title = anime.title.english || anime.title.romaji;
   const banner = anime.bannerImage || anime.coverImage.extraLarge || anime.coverImage.large;

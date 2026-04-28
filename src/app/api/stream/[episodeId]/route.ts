@@ -1,13 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getStreamingSources } from '@/lib/consumet';
+import { NextResponse } from 'next/server';
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ episodeId: string }> }) {
-  const { episodeId } = await params;
-  const decoded = decodeURIComponent(episodeId);
-  try {
-    const sources = await getStreamingSources(decoded);
-    return NextResponse.json(sources);
-  } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 });
-  }
+// Streaming is now handled entirely by embed iframes in the VideoPlayer.
+// This route returns empty sources, causing VideoPlayer to skip HLS mode.
+export async function GET() {
+  return NextResponse.json({ sources: [] });
 }

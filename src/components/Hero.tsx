@@ -28,11 +28,11 @@ export default async function Hero({ anime }: Props) {
   // Get first episode so Watch Now links directly to it
   let firstEpUrl = `/anime/${anime.id}`;
   try {
-    const eps = await getEpisodes(anime.id);
+    const eps = await getEpisodes(anime.id, anime.idMal);
     if (eps.length > 0) {
       firstEpUrl = `/watch/${anime.id}/${encodeURIComponent(eps[0].id)}`;
     }
-  } catch { /* fine — link to detail page */ }
+  } catch { /* link to detail page */ }
 
   // Next airing countdown
   const nextAiring = anime.nextAiringEpisode;

@@ -39,10 +39,15 @@ export default async function WatchPage({ params }: Props) {
   const decodedEpId = decodeURIComponent(episodeId);
 
   let anime;
-  let episodes;
+  let episodes: import('@/lib/consumet').ConsumetEpisode[] = [];
   try {
-    [anime, episodes] = await Promise.all([getAnimeById(numId), getEpisodes(numId)]);
-  } catch { notFound(); }
+    anime = await getAnimeById(numId);
+  } catch { notFound(); return; }
+
+  try {
+    episodes = await getEpisodes(numId, anime.idMal);
+  } catch { /* show player without episode sidebar */ }
+
 
   const title = anime.title.english || anime.title.romaji;
 
