@@ -1,61 +1,41 @@
-'use client'
+import Link from 'next/link';
+import type { AniListMedia } from '@/lib/anilist';
 
-import Link from 'next/link'
-import { Anime } from '@/types/anime'
+const StarIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+  </svg>
+);
 
-export default function AnimeCard({ anime }: { anime: Anime }) {
+interface Props {
+  anime: AniListMedia;
+  rank?: number;
+}
+
+export default function AnimeCard({ anime, rank }: Props) {
+  const title = anime.title.english || anime.title.romaji;
+  const img = anime.coverImage.extraLarge || anime.coverImage.large || anime.coverImage.medium || '';
+  const score = anime.averageScore ? (anime.averageScore / 10).toFixed(1) : null;
+
   return (
-    <Link href={`/anime/${anime.id}`}>
-      <div className="group relative h-full cursor-pointer overflow-hidden rounded-lg bg-gradient-to-b from-gray-900 to-black transition-transform duration-300 hover:scale-105">
-        {/* Image */}
-        <div className="relative h-64 w-full overflow-hidden bg-gradient-to-b from-purple-500 to-pink-500">
-          <img
-            src={anime.image}
-            alt={anime.title}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-        </div>
-
-        {/* Content */}
-        <div className="p-4">
-          <h3 className="mb-2 truncate text-lg font-bold text-white group-hover:text-purple-400">
-            {anime.title}
-          </h3>
-
-          {/* Rating and Status */}
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <span className="text-yellow-400">⭐</span>
-              <span className="text-sm font-semibold text-yellow-400">{anime.rating}</span>
-            </div>
-            <span className={`text-xs font-bold px-2 py-1 rounded ${
-              anime.status === 'Ongoing'
-                ? 'bg-green-500/20 text-green-400'
-                : 'bg-blue-500/20 text-blue-400'
-            }`}>
-              {anime.status}
-            </span>
+    <Link href={`/anime/${anime.id}`} className="anime-card" title={title}>
+      {rank && rank <= 3 && (
+        <span className="anime-card-badge">
+          {rank === 1 ? '🔥 #1' : rank === 2 ? '⚡ #2' : '✨ #3'}
+        </span>
+      )}
+      {anime.episodes && (
+        <span className="anime-card-eps">{anime.episodes} eps</span>
+      )}
+      <img src={img} alt={title} loading="lazy" />
+      <div className="anime-card-overlay">
+        {score && (
+          <div className="anime-card-score">
+            <StarIcon /> {score}
           </div>
-
-          {/* Genres */}
-          <div className="mb-2 flex flex-wrap gap-1">
-            {anime.genre.slice(0, 2).map((g) => (
-              <span key={g} className="inline-block bg-purple-500/20 px-2 py-1 text-xs text-purple-300 rounded">
-                {g}
-              </span>
-            ))}
-          </div>
-
-          {/* Episodes */}
-          <div className="text-xs text-gray-400">
-            📺 {anime.episodes} Episodes • {anime.year}
-          </div>
-        </div>
-
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-pink-600/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+        )}
+        <p className="anime-card-title">{title}</p>
       </div>
     </Link>
-  )
+  );
 }

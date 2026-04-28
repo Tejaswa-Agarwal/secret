@@ -1,27 +1,27 @@
-import type { Metadata } from 'next'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
-import './globals.css'
+import type { Metadata } from 'next';
+import './globals.css';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 
 export const metadata: Metadata = {
-  title: 'AnimeHub - Modern Anime Streaming',
-  description: 'Stream your favorite anime with AnimeHub. Discover new series, watch episodes, and join the anime community.',
-}
+  title: 'AniStream — Watch Anime Online Free',
+  description: 'Stream the latest trending and popular anime for free. Sub & dub available. No ads. Just anime.',
+  keywords: 'anime streaming, watch anime online, free anime, sub dub',
+  openGraph: {
+    title: 'AniStream — Watch Anime Online Free',
+    description: 'Stream trending anime online. Sub & dub available.',
+    type: 'website',
+  },
+};
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+      <body>
         <Header />
-        <main className="min-h-screen">
-          {children}
-        </main>
+        <main>{children}</main>
         <Footer />
       </body>
     </html>
-  )
+  );
 }
