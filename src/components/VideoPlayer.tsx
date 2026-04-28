@@ -1,168 +1,91 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-
-interface Source {
-  url: string;
-  quality: string;
-  isM3U8: boolean;
-}
+import { useEffect, useState } from 'react';
 
 interface Props {
-  episodeId: string;
-  animeId?: number;
-  episodeNum?: number;
+  animeId: number;
+  episodeNum: number;
   title?: string;
 }
 
-type PlayerMode = 'hls' | 'embed1' | 'embed2';
-
-const EMBED_PROVIDERS = [
-  { id: 'embed1', label: '2Embed', getUrl: (animeId: number, ep: number) => `https://2embed.skin/embed/anilist/${animeId}/${ep}` },
-  { id: 'embed2', label: 'VidSrc', getUrl: (animeId: number, ep: number) => `https://vidsrc.me/embed/anime?id=${animeId}&episode=${ep}` },
+// Embed providers — order matters, first one shown by default
+const PROVIDERS = [
+  {
+    id: 'p1',
+    label: '🟢 Server 1',
+    // 2embed with AniList ID — most reliable
+    getUrl: (id: number, ep: number) =>
+      `https://2embed.skin/embed/anilist/${id}/${ep}`,
+  },
+  {
+    id: 'p2',
+    label: '🔵 Server 2',
+    // VidSrc with AniList ID
+    getUrl: (id: number, ep: number) =>
+      `https://vidsrc.me/embed/anime?id=${id}&episode=${ep}`,
+  },
+  {
+    id: 'p3',
+    label: '🟡 Server 3',
+    // embed.su — another aggregator
+    getUrl: (id: number, ep: number) =>
+      `https://embed.su/embed/anilist/${id}/${ep}`,
+  },
 ];
 
-export default function VideoPlayer({ episodeId, animeId, episodeNum = 1, title }: Props) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [sources, setSources] = useState<Source[]>([]);
-  const [selectedUrl, setSelectedUrl] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [mode, setMode] = useState<PlayerMode>('hls');
-  const [hlsFailed, setHlsFailed] = useState(false);
+export default function VideoPlayer({ animeId, episodeNum, title }: Props) {
+  const [activeProvider, setActiveProvider] = useState(PROVIDERS[0].id);
+  const [key, setKey] = useState(0); // Force iframe reload on provider switch
 
+  // Reset to first provider whenever episode changes
   useEffect(() => {
-    setLoading(true);
-    setError('');
-    setSources([]);
-    setSelectedUrl('');
-    setHlsFailed(false);
-    setMode('hls');
+    setActiveProvider(PROVIDERS[0].id);
+    setKey(k => k + 1);
+  }, [animeId, episodeNum]);
 
-    fetch(`/api/stream/${encodeURIComponent(episodeId)}`)
-      .then(r => r.json())
-      .then(data => {
-        const srcs: Source[] = data.sources ?? [];
-        setSources(srcs);
-        const best =
-          srcs.find(s => s.quality === '1080p') ||
-          srcs.find(s => s.quality === '720p') ||
-          srcs.find(s => s.quality === 'default') ||
-          srcs[0];
-        if (best) {
-          setSelectedUrl(best.url);
-        } else {
-          // No HLS sources — auto-switch to embed
-          setHlsFailed(true);
-          setMode('embed1');
-        }
-        setLoading(false);
-      })
-      .catch(() => {
-        setHlsFailed(true);
-        setMode('embed1');
-        setLoading(false);
-      });
-  }, [episodeId]);
+  const provider = PROVIDERS.find(p => p.id === activeProvider) ?? PROVIDERS[0];
+  const embedUrl = provider.getUrl(animeId, episodeNum);
 
-  useEffect(() => {
-    if (mode !== 'hls' || !selectedUrl || !videoRef.current) return;
-    const video = videoRef.current;
-    const isHLS = selectedUrl.includes('.m3u8');
-    let hlsInstance: unknown = null;
-
-    if (isHLS && typeof window !== 'undefined') {
-      import('hls.js').then(({ default: Hls }) => {
-        if (Hls.isSupported()) {
-          const hls = new Hls({ maxBufferLength: 30, maxMaxBufferLength: 60 });
-          hlsInstance = hls;
-          hls.loadSource(selectedUrl);
-          hls.attachMedia(video);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
-          hls.on(Hls.Events.ERROR, (_: unknown, data: { fatal: boolean }) => {
-            if (data.fatal) { setHlsFailed(true); setMode('embed1'); }
-          });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = selectedUrl;
-          video.play().catch(() => {});
-        }
-      });
-    } else if (selectedUrl) {
-      video.src = selectedUrl;
-      video.play().catch(() => {});
-    }
-
-    return () => {
-      if (hlsInstance && typeof (hlsInstance as { destroy?: () => void }).destroy === 'function') {
-        (hlsInstance as { destroy: () => void }).destroy();
-      }
-    };
-  }, [selectedUrl, mode]);
-
-  const embedUrl = animeId ? EMBED_PROVIDERS.find(p => p.id === mode)?.getUrl(animeId, episodeNum) : null;
-
-  if (loading) {
-    return (
-      <div className="video-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 360 }}>
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-          <div style={{ width: 48, height: 48, border: '3px solid rgba(124,58,237,0.3)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); }}`}</style>
-          <p style={{ fontSize: 14 }}>Loading stream...</p>
-        </div>
-      </div>
-    );
-  }
+  const switchProvider = (id: string) => {
+    setActiveProvider(id);
+    setKey(k => k + 1);
+  };
 
   return (
     <div>
-      {/* Source mode switcher */}
+      {/* Server switcher */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Server:</span>
-        {!hlsFailed && sources.length > 0 && (
-          <button onClick={() => setMode('hls')} style={modeBtn(mode === 'hls')}>HLS Direct</button>
-        )}
-        {animeId && EMBED_PROVIDERS.map(p => (
-          <button key={p.id} onClick={() => setMode(p.id as PlayerMode)} style={modeBtn(mode === p.id)}>{p.label}</button>
+        {PROVIDERS.map(p => (
+          <button
+            key={p.id}
+            onClick={() => switchProvider(p.id)}
+            style={btnStyle(activeProvider === p.id)}
+          >
+            {p.label}
+          </button>
         ))}
-        {hlsFailed && mode === 'hls' && (
-          <span style={{ fontSize: 11, color: '#f87171' }}>⚠ Direct stream unavailable — using embed</span>
-        )}
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 4 }}>
+          If one doesn&apos;t load, try another →
+        </span>
       </div>
 
-      {/* Player */}
-      {mode === 'hls' && sources.length > 0 ? (
-        <div className="video-wrapper">
-          <video ref={videoRef} controls autoPlay playsInline crossOrigin="anonymous" style={{ width: '100%', height: '100%', background: '#000' }} />
-        </div>
-      ) : embedUrl ? (
-        <div className="video-wrapper">
-          <iframe
-            src={embedUrl}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            allowFullScreen
-            allow="autoplay; fullscreen"
-            title={title || 'Anime Player'}
-          />
-        </div>
-      ) : (
-        <div className="video-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 360 }}>
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 24 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>📡</div>
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 8 }}>Stream Unavailable</p>
-            <p style={{ fontSize: 13 }}>Try switching servers above, or check back later.</p>
-          </div>
-        </div>
-      )}
-
-      {/* Quality selector (HLS mode) */}
-      {mode === 'hls' && sources.length > 1 && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>Quality:</span>
-          {sources.map(s => (
-            <button key={s.url} onClick={() => setSelectedUrl(s.url)} style={modeBtn(selectedUrl === s.url)}>{s.quality}</button>
-          ))}
-        </div>
-      )}
+      {/* Iframe player — sandbox prevents iframe from redirecting the parent page */}
+      <div className="video-wrapper">
+        <iframe
+          key={`${key}-${animeId}-${episodeNum}`}
+          src={embedUrl}
+          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+          allowFullScreen
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          // allow-popups lets the player open quality picker etc
+          // NOT including allow-top-navigation prevents the iframe from hijacking the browser tab
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock allow-presentation allow-fullscreen"
+          referrerPolicy="no-referrer"
+          title={title ?? `Episode ${episodeNum}`}
+          loading="eager"
+        />
+      </div>
 
       {title && (
         <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 10, fontWeight: 500 }}>
@@ -173,12 +96,13 @@ export default function VideoPlayer({ episodeId, animeId, episodeNum = 1, title 
   );
 }
 
-function modeBtn(active: boolean): React.CSSProperties {
+function btnStyle(active: boolean): React.CSSProperties {
   return {
-    padding: '4px 12px', borderRadius: 6, border: '1px solid',
+    padding: '5px 14px', borderRadius: 7, border: '1px solid',
     borderColor: active ? '#7c3aed' : 'var(--border)',
-    background: active ? 'rgba(124,58,237,0.2)' : 'transparent',
-    color: active ? '#a78bfa' : 'var(--text-muted)',
-    fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+    background: active ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.04)',
+    color: active ? '#c4b5fd' : 'var(--text-muted)',
+    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    transition: 'all 0.18s',
   };
 }
