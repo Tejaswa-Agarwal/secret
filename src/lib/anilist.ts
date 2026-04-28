@@ -54,6 +54,30 @@ export async function getPopularAnime(page = 1, perPage = 20) {
   return data.Page.media;
 }
 
+export async function getCurrentlyAiring(page = 1, perPage = 20) {
+  const q = `
+    query ($page: Int, $perPage: Int) {
+      Page(page: $page, perPage: $perPage) {
+        media(status: RELEASING, type: ANIME, isAdult: false, sort: POPULARITY_DESC) { ${MEDIA_FRAGMENT} }
+      }
+    }
+  `;
+  const data = await query<{ Page: { media: AniListMedia[] } }>(q, { page, perPage });
+  return data.Page.media;
+}
+
+export async function getTopRated(page = 1, perPage = 20) {
+  const q = `
+    query ($page: Int, $perPage: Int) {
+      Page(page: $page, perPage: $perPage) {
+        media(sort: SCORE_DESC, type: ANIME, isAdult: false, format_in: [TV, MOVIE]) { ${MEDIA_FRAGMENT} }
+      }
+    }
+  `;
+  const data = await query<{ Page: { media: AniListMedia[] } }>(q, { page, perPage });
+  return data.Page.media;
+}
+
 export async function searchAnime(search: string, page = 1, perPage = 20, genre?: string) {
   const q = `
     query ($search: String, $page: Int, $perPage: Int, $genre: String) {
